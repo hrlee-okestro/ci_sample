@@ -23,7 +23,7 @@ jobs:
           AWS_SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
         run: |
           mkdir -p ~/.ssh/
-          echo "$AWS_SSH_KEY" > ~/.ssh/aws.key
+          echo "$AWS_SSH_KEY" | tr -d '\r' > ~/.ssh/aws.key
           chmod 600 ~/.ssh/aws.key
 
       - name: Deploy to EC2

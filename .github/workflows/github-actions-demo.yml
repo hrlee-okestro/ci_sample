@@ -32,10 +32,10 @@ jobs:
           EC2_USER: ec2-user
         run: |
           #Copy necessary files to EC2
-          scp -i ~/.ssh/aws.ket -r dist package.json tsconfig.json tsconfig.build.json $EC2_USER@$EC2_PUBLIC_IP:~/sample-server
+          scp -o StrictHostKeyChecking=no -i ~/.ssh/aws.key -r dist package.json tsconfig.json tsconfig.build.json $EC2_USER@$EC2_PUBLIC_IP:~/sample-server
           
           #SSH into EC2 and restart the application
-          ssh -i ~/.ssh/aws.key $EC2_USER@$EC2_PUBLIC_IP << 'ENDSSH
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/aws.key $EC2_USER@$EC2_PUBLIC_IP << 'ENDSSH'
           cd ~/sample-server
           npm install --production
           pm2 stop all || true

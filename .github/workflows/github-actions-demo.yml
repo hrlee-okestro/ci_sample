@@ -23,7 +23,8 @@ jobs:
           AWS_SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
         run: |
           mkdir -p ~/.ssh/
-          echo "$AWS_SSH_KEY" | tr -d '\r' > ~/.ssh/aws.key
+          # printf를 사용하여 변수 내용을 그대로 파일에 담습니다.
+          printf "%s" "$AWS_SSH_KEY" > ~/.ssh/aws.key
           chmod 600 ~/.ssh/aws.key
 
       - name: Deploy to EC2

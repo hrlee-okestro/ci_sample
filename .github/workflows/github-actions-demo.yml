@@ -49,11 +49,22 @@ jobs:
             EC2_HOST: ${{ secrets.EC2_PUBLIC_IP }}
             EC2_USER: ec2-user
             AWS_REGION: ap-southeast-2 # 리전 정보 추가
+            AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+            AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
         run: |
             ## 1. SSH 키 생성
             echo "$SSH_PRIVATE_KEY" > ssh_key.pem
             chmod 600 ssh_key.pem
-            
+
+            # AWS 자격 증명 파일 생성 및 전송
+            ssh -i ~/.ssh/id_rsa $EC2_USERNAME@$EC2_HOST "mkdir -p ~/.aws"
+            echo "[default]
+            aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}
+            aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            region=${{ secrets.AWS_REGION }}" | ssh -i ~/.ssh/id_rsa $EC2_USERNAME@$EC2_HOST "cat > ~/.aws/credentials"
+        
+        
             ## 2. SSH 접속 및 배포 (ENDSSH 앞뒤 공백 주의)
             ssh -o StrictHostKeyChecking=no -i ssh_key.pem $EC2_USER@$EC2_HOST << 'ENDSSH'
               # 원격 서버(EC2)에서 실행될 명령어들

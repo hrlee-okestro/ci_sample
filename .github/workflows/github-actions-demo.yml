@@ -45,42 +45,37 @@ jobs:
 
       - name: Deploy to EC2
         env:
-            SSH_PRIVATE_KEY: ${{ secrets.AWS_SSH_KEY }}
-            EC2_HOST: ${{ secrets.EC2_PUBLIC_IP }}
-            EC2_USER: ec2-user
-            AWS_REGION: ap-southeast-2 # 리전 정보 추가
-            AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-            AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-
+          SSH_PRIVATE_KEY: ${{ secrets.AWS_SSH_KEY }}
+          EC2_HOST: ${{ secrets.EC2_PUBLIC_IP }}
+          EC2_USER: ec2-user
+          # EC2 내부에서 사용할 수 있도록 변수 준비
+          TARGET_AWS_ACCESS_KEY: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          TARGET_AWS_SECRET_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          TARGET_AWS_REGION: ap-southeast-2
         run: |
             ## 1. SSH 키 생성
             echo "$SSH_PRIVATE_KEY" > ssh_key.pem
             chmod 600 ssh_key.pem
-
-            # AWS 자격 증명 파일 생성 및 전송
-            ssh -i ~/.ssh/id_rsa $EC2_USERNAME@$EC2_HOST "mkdir -p ~/.aws"
-            echo "[default]
-            aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}
-            aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}
-            region=${{ secrets.AWS_REGION }}" | ssh -i ~/.ssh/id_rsa $EC2_USERNAME@$EC2_HOST "cat > ~/.aws/credentials"
-        
-        
-            ## 2. SSH 접속 및 배포 (ENDSSH 앞뒤 공백 주의)
-            ssh -o StrictHostKeyChecking=no -i ssh_key.pem $EC2_USER@$EC2_HOST << 'ENDSSH'
-              # 원격 서버(EC2)에서 실행될 명령어들
+            
+            ## 2. SSH 접속 및 배포
+            # SSH 접속 시 환경변수를 함께 넘겨줍니다.
+            ssh -o StrictHostKeyChecking=no -i ssh_key.pem $EC2_USER@$EC2_HOST \
+              AWS_ACCESS_KEY_ID=$TARGET_AWS_ACCESS_KEY \
+              AWS_SECRET_ACCESS_KEY=$TARGET_AWS_SECRET_KEY \
+              AWS_DEFAULT_REGION=$TARGET_AWS_REGION << 'ENDSSH'
             
               # ECR 로그인
               aws ecr get-login-password --region ap-southeast-2 | docker login --username AWS --password-stdin 160631388793.dkr.ecr.ap-southeast-2.amazonaws.com
             
-              # 최신 이미지 Pull
-              docker pull 160631388793.dkr.ecr.ap-southeast-2.amazonaws.com/sample-server:latest
+              # 최신 이미지 Pull (태그는 빌드와 동일하게 v2로 맞추는 걸 추천하지만, 일단 유지합니다)
+              docker pull 160631388793.dkr.ecr.ap-southeast-2.amazonaws.com/sample-server:v2
             
               # 기존 컨테이너 중지 및 삭제
               docker stop sample-server || true
               docker rm sample-server || true
             
               # 새 컨테이너 실행
-              docker run -d -p 3000:3000 --name sample-server 160631388793.dkr.ecr.ap-southeast-2.amazonaws.com/sample-server:latest
+              docker run -d -p 3000:3000 --name sample-server 160631388793.dkr.ecr.ap-southeast-2.amazonaws.com/sample-server:v2
             ENDSSH
             
             ## 3. 임시 SSH 키 파일 제거

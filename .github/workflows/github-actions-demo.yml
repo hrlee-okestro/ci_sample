@@ -45,28 +45,32 @@ jobs:
 
       - name: Deploy to EC2
         env:
-          SSH_PRIVATE_KEY: ${{ secrets.AWS_SSH_KEY }}
-          EC2_HOST: ${{ secrets.EC2_PUBLIC_IP }}
-          EC2_USER: ec2-user
+            SSH_PRIVATE_KEY: ${{ secrets.AWS_SSH_KEY }}
+            EC2_HOST: ${{ secrets.EC2_PUBLIC_IP }}
+            EC2_USER: ec2-user
+            AWS_REGION: ap-southeast-2 # 리전 정보 추가
         run: |
-          ## SSH 키 설정
-          echo "$SSH_PRIVATE_KEY" > ssh_key.pem
-          chmod 600 ssh_key.pem
-          
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/aws.key $EC2_USER@$EC2_PUBLIC_IP << ENDSSH
-             # ECR 로그인
-             aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin 160631388793.dkr.ecr.ap-southeast-2.amazonaws.com
-          
-             # 최신 이미지 Pull
-             docker pull 160631388793.dkr.ecr.ap-southeast-2.amazonaws.com/sample-server:v2
-             # 기존 컨테이너 중지 및 삭제
-             docker stop sample-server || true
-             docker rm sample-server || true
-              # 새 컨테이너 실행 (포트는 필요에 따라 수정하세요)
-             docker run -d -p 3000:3000 --name sample-server 160631388793.dkr.ecr.ap-southeast-2.amazonaws.com/sample-server:v2
-           ENDSSH
-          
-            # 임시 SSH 키 파일 제거
+            ## 1. SSH 키 생성
+            echo "$SSH_PRIVATE_KEY" > ssh_key.pem
+            chmod 600 ssh_key.pem
+            
+            ## 2. SSH 접속 및 배포 (ENDSSH 앞뒤 공백 주의)
+            ssh -o StrictHostKeyChecking=no -i ssh_key.pem $EC2_USER@$EC2_HOST << 'ENDSSH'
+              # 원격 서버(EC2)에서 실행될 명령어들
+            
+              # ECR 로그인
+              aws ecr get-login-password --region ap-southeast-2 | docker login --username AWS --password-stdin 160631388793.dkr.ecr.ap-southeast-2.amazonaws.com
+            
+              # 최신 이미지 Pull
+              docker pull 160631388793.dkr.ecr.ap-southeast-2.amazonaws.com/sample-server:v2
+            
+              # 기존 컨테이너 중지 및 삭제
+              docker stop sample-server || true
+              docker rm sample-server || true
+            
+              # 새 컨테이너 실행
+              docker run -d -p 3000:3000 --name sample-server 160631388793.dkr.ecr.ap-southeast-2.amazonaws.com/sample-server:v2
+            ENDSSH
+            
+            ## 3. 임시 SSH 키 파일 제거
             rm ssh_key.pem
-          
-

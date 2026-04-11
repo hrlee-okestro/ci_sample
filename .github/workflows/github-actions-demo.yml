@@ -1,46 +1,44 @@
-name: HARIN CI/CD Pipeline
-run-name: ${{ github.actor }} is testing out GitHub Actions 🚀
-on: [push]
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
 jobs:
-  Deploy-To-EC2:
+  build-and-push:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build Project
-        run: npm run build
+      - name: Generate version
+        id: version
+        run: |
+          echo "version=$(date +'%Y%m%d_%H%M%S')-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
       - name: Configure AWS credentials
-        env:
-          AWS_SSH_KEY: ${{ secrets.AWS_SSH_KEY }}
-        run: |
-          mkdir -p ~/.ssh/
-          # printf를 사용하여 변수 내용을 그대로 파일에 담습니다.
-          printf "%s" "$AWS_SSH_KEY" > ~/.ssh/aws.key
-          chmod 600 ~/.ssh/aws.key
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Deploy to EC2
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Docker image
         env:
-          EC2_PUBLIC_IP: ${{ secrets.EC2_PUBLIC_IP }}
-          EC2_USER: ec2-user
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+          IMAGE_TAG: ${{ steps.version.outputs.version }}
         run: |
-          #Copy necessary files to EC2
-          scp -o StrictHostKeyChecking=no -i ~/.ssh/aws.key -r dist package.json tsconfig.json tsconfig.build.json $EC2_USER@$EC2_PUBLIC_IP:~/sample-server
+          # buildx 설정
+          docker buildx create --name mybuilder --use
+          docker buildx inspect --bootstrap
           
-          #SSH into EC2 and restart the application
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/aws.key $EC2_USER@$EC2_PUBLIC_IP << 'ENDSSH'
-          cd ~/sample-server
-          npm install --production
-          pm2 stop all || true
-          pm2 start dist/main.js --name "sample-server"
-          ENDSSH
-
-      - run: echo "This job's status id ${{ job.status }}."
+          # 멀티 플랫폼 빌드 및 푸시
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            -t 160631388793.dkr.ecr.ap-southeast-2.amazonaws.com/sample-server:v2 \
+            --push .

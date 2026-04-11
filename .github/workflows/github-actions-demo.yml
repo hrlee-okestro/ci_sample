@@ -62,7 +62,7 @@ jobs:
               aws ecr get-login-password --region ap-southeast-2 | docker login --username AWS --password-stdin 160631388793.dkr.ecr.ap-southeast-2.amazonaws.com
             
               # 최신 이미지 Pull
-              docker pull 160631388793.dkr.ecr.ap-southeast-2.amazonaws.com/sample-server:v2
+              docker pull 160631388793.dkr.ecr.ap-southeast-2.amazonaws.com/sample-server:latest
             
               # 기존 컨테이너 중지 및 삭제
               docker stop sample-server || true

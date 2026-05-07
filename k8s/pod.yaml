@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sample-ci-pod
+  labels:
+    app: sample-ci-pod
+spec:
+  containers:
+    - name: sample-ci-server
+      image: hllee0000/sample-server:v1
+      ports:
+        - containerPort: 3000
+    - name: nginx
+      image: nginx:latest
+      ports:
+        - containerPort: 80
